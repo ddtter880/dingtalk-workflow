@@ -28,6 +28,7 @@ export const useProjectStore = defineStore('project', () => {
     new: projects.value.filter(p => p.category === ProjectStatus.NEW).length,
     processing: projects.value.filter(p => p.category === ProjectStatus.PROCESSING).length,
     pending_close: projects.value.filter(p => p.category === ProjectStatus.PENDING_CLOSE).length,
+    closed: projects.value.filter(p => p.category === ProjectStatus.CLOSED).length,
     total: projects.value.length,
   }))
 

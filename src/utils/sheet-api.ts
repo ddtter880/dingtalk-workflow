@@ -150,19 +150,35 @@ export function deleteProject(id: string): boolean {
 
   // 添加到垃圾箱
   const recycleBin = getStorage<RecycleBinItem>(STORAGE_KEYS.RECYCLE_BIN)
-  recycleBin.push({
+  const recycleItem: RecycleBinItem = {
     project_id: project.project_id,
     closed_by: project.created_by,
     closed_at: new Date().toISOString(),
     auto_delete_date: '',
     work_name: project.work_name,
     project_data: JSON.stringify(project),
-  })
+  }
+  recycleBin.push(recycleItem)
   setStorage(STORAGE_KEYS.RECYCLE_BIN, recycleBin)
 
   // 从项目列表移除
   const filtered = projects.filter(p => p.project_id !== id)
   setStorage(STORAGE_KEYS.PROJECTS, filtered)
+
+  // 同步到在线表格
+  if (useOnlineSheet()) {
+    // 追加到垃圾箱表
+    const row = [
+      recycleItem.project_id,
+      recycleItem.closed_by,
+      recycleItem.closed_at,
+      recycleItem.work_name,
+      recycleItem.project_data,
+    ]
+    appendSheetData(SHEET_IDS.RECYCLE_BIN, [row]).catch(e =>
+      console.error('[Sheet] 同步垃圾箱失败:', e)
+    )
+  }
 
   return true
 }
@@ -293,6 +309,63 @@ export async function syncFromSheet(): Promise<void> {
   }
 }
 
+// ==================== 自动清理与提醒 ====================
+
+/** 自动清理过期的垃圾箱项目 */
+export function autoCleanRecycleBin(): number {
+  const config = getSystemConfig()
+  const days = config.auto_delete_days || 30
+  const recycleBin = getStorage<RecycleBinItem>(STORAGE_KEYS.RECYCLE_BIN)
+  const now = new Date()
+
+  const expired = recycleBin.filter(item => {
+    const closedAt = new Date(item.closed_at)
+    const diffDays = Math.floor((now.getTime() - closedAt.getTime()) / (1000 * 60 * 60 * 24))
+    return diffDays >= days
+  })
+
+  if (expired.length > 0) {
+    const remaining = recycleBin.filter(item => !expired.some(e => e.project_id === item.project_id))
+    setStorage(STORAGE_KEYS.RECYCLE_BIN, remaining)
+    console.log(`[Sheet] 自动清理了 ${expired.length} 个过期垃圾箱项目（超过${days}天）`)
+  }
+
+  return expired.length
+}
+
+/** 获取需要提醒的项目（未处理项目列表） */
+export function getProjectsNeedingAttention(): Project[] {
+  const projects = getProjects()
+  return projects.filter(p =>
+    p.category === ProjectStatus.NEW ||
+    p.category === ProjectStatus.PROCESSING ||
+    p.category === ProjectStatus.PENDING_CLOSE
+  )
+}
+
+/** 检查是否需要发送周提醒（每周一检查） */
+export function shouldSendWeeklyReminder(): boolean {
+  const now = new Date()
+  const dayOfWeek = now.getDay() // 0=周日, 1=周一
+  if (dayOfWeek !== 1) return false // 仅周一
+
+  const lastReminder = localStorage.getItem('dt_last_reminder')
+  if (lastReminder) {
+    const lastDate = new Date(lastReminder)
+    // 同一周内不重复发送
+    if (lastDate.getTime() > now.getTime() - 7 * 24 * 60 * 60 * 1000) {
+      return false
+    }
+  }
+
+  return true
+}
+
+/** 标记本周已发送提醒 */
+export function markReminderSent(): void {
+  localStorage.setItem('dt_last_reminder', new Date().toISOString())
+}
+
 // ==================== 历史记录 ====================
 
 export function addHistoryRecord(data: Omit<HistoryRecord, 'record_id'>): HistoryRecord {
@@ -352,6 +425,35 @@ export function savePersonnelConfig(config: PersonnelConfig): PersonnelConfig {
     configs.push(config)
   }
   setStorage(STORAGE_KEYS.PERSONNEL, configs)
+
+  // 同步到在线表格
+  if (useOnlineSheet()) {
+    const row = [
+      config.project_id,
+      config.project_leader || '',
+      config.dept_head || '',
+      config.leader || '',
+      config.safety_person || '',
+    ]
+    // 先尝试查找已有记录
+    fetchSheetData(SHEET_IDS.PERSONNEL, 'A:A').then(ids => {
+      if (ids) {
+        const rowIdx = ids.findIndex((r: string[]) => r[0] === config.project_id)
+        if (rowIdx >= 0) {
+          updateSheetData(SHEET_IDS.PERSONNEL, `A${rowIdx + 1}:E${rowIdx + 1}`, [row]).catch(e =>
+            console.error('[Sheet] 同步人员配置(更新)失败:', e)
+          )
+        } else {
+          appendSheetData(SHEET_IDS.PERSONNEL, [row]).catch(e =>
+            console.error('[Sheet] 同步人员配置(追加)失败:', e)
+          )
+        }
+      }
+    }).catch(e =>
+      console.error('[Sheet] 查询人员配置失败:', e)
+    )
+  }
+
   return config
 }
 
@@ -408,6 +510,21 @@ export function restoreProject(projectId: string): boolean {
 
   const filtered = recycleBin.filter(r => r.project_id !== projectId)
   setStorage(STORAGE_KEYS.RECYCLE_BIN, filtered)
+
+  // 同步到在线表格：从垃圾箱表删除
+  if (useOnlineSheet()) {
+    fetchSheetData(SHEET_IDS.RECYCLE_BIN, 'A:A').then(ids => {
+      if (ids) {
+        const rowIdx = ids.findIndex((r: string[]) => r[0] === projectId)
+        if (rowIdx >= 0) {
+          updateSheetData(SHEET_IDS.RECYCLE_BIN, `A${rowIdx + 1}:E${rowIdx + 1}`, [['', '', '', '', '']]).catch(e =>
+            console.error('[Sheet] 清除垃圾箱记录失败:', e)
+          )
+        }
+      }
+    }).catch(e => console.error('[Sheet] 查询垃圾箱失败:', e))
+  }
+
   return true
 }
 
