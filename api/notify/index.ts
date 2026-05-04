@@ -4,7 +4,7 @@
  * 发送钉钉工作通知消息给指定用户
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { sendWorkNotification } from '../_lib/dingtalk'
+import { sendWorkNotification } from '../_lib/dingtalk.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*')

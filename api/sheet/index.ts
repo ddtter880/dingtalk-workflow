@@ -9,7 +9,7 @@ import {
   getSpreadsheetRange,
   updateSpreadsheetRange,
   appendSpreadsheetRows,
-} from '../_lib/dingtalk'
+} from '../_lib/dingtalk.js'
 
 const SPREADSHEET_ID = process.env.DINGTALK_SHEET_ID || ''
 

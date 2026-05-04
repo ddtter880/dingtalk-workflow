@@ -4,7 +4,7 @@
  * PUT /api/todo - 完成待办
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { createWorkRecord, completeWorkRecord } from '../_lib/dingtalk'
+import { createWorkRecord, completeWorkRecord } from '../_lib/dingtalk.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*')

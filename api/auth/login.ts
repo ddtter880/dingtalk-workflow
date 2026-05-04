@@ -4,7 +4,7 @@
  * 接收前端传来的authCode，返回用户信息
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getUserInfoByAuthCode, getUserDetail } from '../_lib/dingtalk'
+import { getUserInfoByAuthCode, getUserDetail } from '../_lib/dingtalk.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS处理

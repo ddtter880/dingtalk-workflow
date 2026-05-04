@@ -8,7 +8,7 @@ import {
   createApprovalInstance,
   getApprovalInstance,
   getApprovalTemplates,
-} from '../_lib/dingtalk'
+} from '../_lib/dingtalk.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*')
