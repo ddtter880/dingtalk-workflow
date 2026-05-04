@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useProjectStore } from '@/store/project'
 import { useUserStore } from '@/store/user'
 import { ProjectStatus, UserRole, ROLE_CONFIG } from '@/utils/constants'
-import { addHistoryRecord } from '@/utils/sheet'
+import { addHistoryRecord } from '@/utils/sheet-api'
 import {
   sendRobotMessage,
   sendWorkNotification,

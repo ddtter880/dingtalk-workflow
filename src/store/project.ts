@@ -9,7 +9,7 @@ import {
   deleteProject as deleteProjectApi,
   initMockData,
   syncFromSheet,
-} from '@/utils/sheet'
+} from '@/utils/sheet-api'
 
 export const useProjectStore = defineStore('project', () => {
   const projects = ref<Project[]>([])

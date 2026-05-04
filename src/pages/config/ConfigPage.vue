@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getPersonnelConfigs, savePersonnelConfig, getSystemConfig, saveSystemConfig } from '@/utils/sheet'
+import { getPersonnelConfigs, savePersonnelConfig, getSystemConfig, saveSystemConfig } from '@/utils/sheet-api'
 import type { PersonnelConfig, SystemConfig } from '@/utils/constants'
 import { ArrowLeft, Save, Plus, Users } from 'lucide-vue-next'
 

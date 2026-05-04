@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getRecycleBinItems, restoreProject, permanentDelete } from '@/utils/sheet'
+import { getRecycleBinItems, restoreProject, permanentDelete } from '@/utils/sheet-api'
 import type { RecycleBinItem } from '@/utils/constants'
 import { formatDateTime } from '@/utils/week'
 import { ArrowLeft, RotateCcw, Trash2 } from 'lucide-vue-next'

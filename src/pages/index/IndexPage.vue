@@ -5,7 +5,7 @@ import { useProjectStore } from '@/store/project'
 import { useUserStore } from '@/store/user'
 import { ProjectStatus } from '@/utils/constants'
 import ProjectCard from '@/components/ProjectCard.vue'
-import { Plus, Trash2, Settings, FileText } from 'lucide-vue-next'
+import { Plus, Trash2, Settings, FileText, BarChart3 } from 'lucide-vue-next'
 
 const router = useRouter()
 const projectStore = useProjectStore()
@@ -38,6 +38,10 @@ function goConfig() {
 function goRecycle() {
   router.push('/recycle')
 }
+
+function goAdmin() {
+  router.push('/admin')
+}
 </script>
 
 <template>
@@ -50,6 +54,9 @@ function goRecycle() {
           <h1 class="text-lg font-semibold text-gray-900">工作事项管理</h1>
         </div>
         <div class="flex items-center gap-3">
+          <button v-if="userStore.isAdmin" @click="goAdmin" class="p-1.5 rounded-lg hover:bg-gray-100">
+            <BarChart3 class="w-5 h-5 text-primary" />
+          </button>
           <button @click="goRecycle" class="p-1.5 rounded-lg hover:bg-gray-100">
             <Trash2 class="w-5 h-5 text-gray-400" />
           </button>
