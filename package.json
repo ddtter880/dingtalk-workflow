@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vercel/node": "^5.7.15",
     "dingtalk-jsapi": "^3.2.9",
     "docx": "^9.6.1",
     "lucide-vue-next": "^1.0.0",
