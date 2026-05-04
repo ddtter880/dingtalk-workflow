@@ -302,16 +302,17 @@ export async function getApprovalTemplates() {
 }
 
 // ==================== 在线表格 ====================
+// 正确API路径: /v1.0/doc/workbooks/{workbookId}/sheets/{sheetId}/...
 
 /**
  * 获取电子表格所有工作表
- * GET https://api.dingtalk.com/v1.0/doc/spreadsheets/{spreadsheetId}/sheets
+ * GET /v1.0/doc/workbooks/{workbookId}/sheets
  */
 export async function getSpreadsheetSheets(spreadsheetId: string) {
   const accessToken = await getAccessToken()
 
   const response = await fetch(
-    `https://api.dingtalk.com/v1.0/doc/spreadsheets/${spreadsheetId}/sheets`,
+    `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets`,
     {
       method: 'GET',
       headers: {
@@ -325,7 +326,8 @@ export async function getSpreadsheetSheets(spreadsheetId: string) {
 
 /**
  * 获取电子表格单元格区域数据
- * POST https://api.dingtalk.com/v1.0/doc/spreadsheets/{spreadsheetId}/sheets/{sheetId}/ranges/{range}
+ * GET /v1.0/doc/workbooks/{workbookId}/sheets/{sheetId}/ranges/{rangeAddress}
+ * 返回 { values: string[][], formulas: string[][], displayValues: string[][] }
  */
 export async function getSpreadsheetRange(
   spreadsheetId: string,
@@ -335,7 +337,7 @@ export async function getSpreadsheetRange(
   const accessToken = await getAccessToken()
 
   const response = await fetch(
-    `https://api.dingtalk.com/v1.0/doc/spreadsheets/${spreadsheetId}/sheets/${sheetId}/ranges/${range}`,
+    `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets/${sheetId}/ranges/${range}?select=values`,
     {
       method: 'GET',
       headers: {
@@ -349,7 +351,7 @@ export async function getSpreadsheetRange(
 
 /**
  * 更新电子表格单元格区域数据
- * PUT https://api.dingtalk.com/v1.0/doc/spreadsheets/{spreadsheetId}/sheets/{sheetId}/ranges/{range}
+ * PUT /v1.0/doc/workbooks/{workbookId}/sheets/{sheetId}/ranges/{rangeAddress}
  */
 export async function updateSpreadsheetRange(
   spreadsheetId: string,
@@ -360,7 +362,7 @@ export async function updateSpreadsheetRange(
   const accessToken = await getAccessToken()
 
   const response = await fetch(
-    `https://api.dingtalk.com/v1.0/doc/spreadsheets/${spreadsheetId}/sheets/${sheetId}/ranges/${range}`,
+    `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets/${sheetId}/ranges/${range}`,
     {
       method: 'PUT',
       headers: {
@@ -376,7 +378,7 @@ export async function updateSpreadsheetRange(
 
 /**
  * 追加行到电子表格
- * POST https://api.dingtalk.com/v1.0/doc/spreadsheets/{spreadsheetId}/sheets/{sheetId}/append
+ * POST /v1.0/doc/workbooks/{workbookId}/sheets/{sheetId}/appendRows
  */
 export async function appendSpreadsheetRows(
   spreadsheetId: string,
@@ -386,7 +388,7 @@ export async function appendSpreadsheetRows(
   const accessToken = await getAccessToken()
 
   const response = await fetch(
-    `https://api.dingtalk.com/v1.0/doc/spreadsheets/${spreadsheetId}/sheets/${sheetId}/append`,
+    `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets/${sheetId}/appendRows`,
     {
       method: 'POST',
       headers: {
