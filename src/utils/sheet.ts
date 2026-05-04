@@ -1,0 +1,399 @@
+/**
+ * 钉钉在线表格数据访问层
+ * 使用localStorage模拟钉钉表格CRUD操作
+ * 生产环境需替换为钉钉表格API调用
+ */
+
+import type { Project, HistoryRecord, PersonnelConfig, RecycleBinItem, SystemConfig } from './constants'
+import { ProjectStatus, UrgencyLevel } from './constants'
+
+const STORAGE_KEYS = {
+  PROJECTS: 'dt_projects',
+  HISTORY: 'dt_history',
+  PERSONNEL: 'dt_personnel',
+  RECYCLE_BIN: 'dt_recycle_bin',
+  CONFIG: 'dt_config',
+}
+
+// ==================== 通用工具 ====================
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 11)
+}
+
+function getStorage<T>(key: string): T[] {
+  try {
+    const data = localStorage.getItem(key)
+    return data ? JSON.parse(data) : []
+  } catch {
+    return []
+  }
+}
+
+function setStorage<T>(key: string, data: T[]): void {
+  localStorage.setItem(key, JSON.stringify(data))
+}
+
+// ==================== 项目CRUD ====================
+
+// 获取所有项目
+export function getProjects(): Project[] {
+  return getStorage<Project>(STORAGE_KEYS.PROJECTS)
+}
+
+// 根据状态筛选项目
+export function getProjectsByStatus(status: ProjectStatus): Project[] {
+  return getProjects().filter(p => p.category === status)
+}
+
+// 根据ID获取项目
+export function getProjectById(id: string): Project | undefined {
+  return getProjects().find(p => p.project_id === id)
+}
+
+// 获取当前周次
+function getCurrentWeek(): string {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), 0, 1)
+  const diff = now.getTime() - start.getTime()
+  const oneWeek = 604800000 // 7 * 24 * 60 * 60 * 1000
+  const weekNum = Math.ceil((diff / oneWeek) + start.getDay() / 7)
+  return `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`
+}
+
+// 创建项目
+export function createProject(data: Omit<Project, 'project_id' | 'updated_at'>): Project {
+  const projects = getProjects()
+  const now = new Date().toISOString()
+  const project: Project = {
+    work_name: data.work_name,
+    work_requirement: data.work_requirement,
+    responsible_dept: data.responsible_dept,
+    responsible_person: data.responsible_person,
+    responsible_leader: data.responsible_leader,
+    plan_finish_date: data.plan_finish_date,
+    actual_finish_date: data.actual_finish_date,
+    risk_impact: data.risk_impact,
+    progress: data.progress,
+    coordination_needs: data.coordination_needs,
+    suggestion: data.suggestion,
+    meeting_notes: data.meeting_notes,
+    urgency_level: data.urgency_level,
+    is_pending_close: data.is_pending_close,
+    remark: data.remark,
+    project_id: generateId(),
+    category: data.category,
+    created_by: data.created_by,
+    created_week: data.created_week || getCurrentWeek(),
+    updated_at: now,
+  }
+  projects.push(project)
+  setStorage(STORAGE_KEYS.PROJECTS, projects)
+  return project
+}
+
+// 更新项目
+export function updateProject(id: string, data: Partial<Project>): Project | null {
+  const projects = getProjects()
+  const index = projects.findIndex(p => p.project_id === id)
+  if (index === -1) return null
+
+  projects[index] = {
+    ...projects[index],
+    ...data,
+    updated_at: new Date().toISOString(),
+  }
+  setStorage(STORAGE_KEYS.PROJECTS, projects)
+  return projects[index]
+}
+
+// 删除项目（移入垃圾箱）
+export function deleteProject(id: string): boolean {
+  const projects = getProjects()
+  const project = projects.find(p => p.project_id === id)
+  if (!project) return false
+
+  // 添加到垃圾箱（保存完整项目数据）
+  const recycleBin = getStorage<RecycleBinItem>(STORAGE_KEYS.RECYCLE_BIN)
+  recycleBin.push({
+    project_id: project.project_id,
+    closed_by: project.created_by,
+    closed_at: new Date().toISOString(),
+    auto_delete_date: '',
+    work_name: project.work_name,
+    project_data: JSON.stringify(project),
+  })
+  setStorage(STORAGE_KEYS.RECYCLE_BIN, recycleBin)
+
+  // 从项目列表移除
+  const filtered = projects.filter(p => p.project_id !== id)
+  setStorage(STORAGE_KEYS.PROJECTS, filtered)
+  return true
+}
+
+// ==================== 历史记录 ====================
+
+// 添加历史记录
+export function addHistoryRecord(data: Omit<HistoryRecord, 'record_id'>): HistoryRecord {
+  const records = getStorage<HistoryRecord>(STORAGE_KEYS.HISTORY)
+  const record: HistoryRecord = {
+    ...data,
+    record_id: generateId(),
+  }
+  records.push(record)
+  setStorage(STORAGE_KEYS.HISTORY, records)
+  return record
+}
+
+// 获取项目历史记录
+export function getProjectHistory(projectId: string): HistoryRecord[] {
+  return getStorage<HistoryRecord>(STORAGE_KEYS.HISTORY)
+    .filter(r => r.project_id === projectId)
+    .sort((a, b) => new Date(b.operated_at).getTime() - new Date(a.operated_at).getTime())
+}
+
+// ==================== 人员配置 ====================
+
+// 获取所有人员配置
+export function getPersonnelConfigs(): PersonnelConfig[] {
+  return getStorage<PersonnelConfig>(STORAGE_KEYS.PERSONNEL)
+}
+
+// 获取项目人员配置
+export function getProjectPersonnel(projectId: string): PersonnelConfig | undefined {
+  return getStorage<PersonnelConfig>(STORAGE_KEYS.PERSONNEL)
+    .find(p => p.project_id === projectId)
+}
+
+// 保存项目人员配置
+export function savePersonnelConfig(config: PersonnelConfig): PersonnelConfig {
+  const configs = getStorage<PersonnelConfig>(STORAGE_KEYS.PERSONNEL)
+  const index = configs.findIndex(c => c.project_id === config.project_id)
+
+  if (index >= 0) {
+    configs[index] = config
+  } else {
+    configs.push(config)
+  }
+  setStorage(STORAGE_KEYS.PERSONNEL, configs)
+  return config
+}
+
+// ==================== 垃圾箱 ====================
+
+// 获取垃圾箱列表
+export function getRecycleBinItems(): RecycleBinItem[] {
+  return getStorage<RecycleBinItem>(STORAGE_KEYS.RECYCLE_BIN)
+}
+
+// 从垃圾箱恢复项目（恢复完整数据）
+export function restoreProject(projectId: string): boolean {
+  const recycleBin = getStorage<RecycleBinItem>(STORAGE_KEYS.RECYCLE_BIN)
+  const item = recycleBin.find(r => r.project_id === projectId)
+  if (!item) return false
+
+  // 尝试从保存的完整数据恢复
+  let restoredProject: Project
+  if (item.project_data) {
+    try {
+      restoredProject = {
+        ...JSON.parse(item.project_data),
+        category: ProjectStatus.PROCESSING,
+        updated_at: new Date().toISOString(),
+      }
+    } catch {
+      return false
+    }
+  } else {
+    // 兼容旧数据：只有基本信息时恢复为空壳
+    restoredProject = {
+      project_id: item.project_id,
+      work_name: item.work_name,
+      category: ProjectStatus.PROCESSING,
+      work_requirement: '',
+      responsible_dept: '',
+      responsible_person: '',
+      responsible_leader: '',
+      plan_finish_date: '',
+      actual_finish_date: '',
+      risk_impact: '',
+      progress: '',
+      coordination_needs: '',
+      suggestion: '',
+      meeting_notes: '',
+      urgency_level: UrgencyLevel.NORMAL,
+      is_pending_close: false,
+      remark: '',
+      created_by: item.closed_by,
+      created_week: '',
+      updated_at: new Date().toISOString(),
+    }
+  }
+
+  const projects = getProjects()
+  projects.push(restoredProject)
+  setStorage(STORAGE_KEYS.PROJECTS, projects)
+
+  // 从垃圾箱移除
+  const filtered = recycleBin.filter(r => r.project_id !== projectId)
+  setStorage(STORAGE_KEYS.RECYCLE_BIN, filtered)
+  return true
+}
+
+// 永久删除
+export function permanentDelete(projectId: string): boolean {
+  const recycleBin = getStorage<RecycleBinItem>(STORAGE_KEYS.RECYCLE_BIN)
+  const filtered = recycleBin.filter(r => r.project_id !== projectId)
+  setStorage(STORAGE_KEYS.RECYCLE_BIN, filtered)
+
+  // 同时删除历史记录
+  const history = getStorage<HistoryRecord>(STORAGE_KEYS.HISTORY)
+  const filteredHistory = history.filter(r => r.project_id !== projectId)
+  setStorage(STORAGE_KEYS.HISTORY, filteredHistory)
+
+  // 删除人员配置
+  const personnel = getStorage<PersonnelConfig>(STORAGE_KEYS.PERSONNEL)
+  const filteredPersonnel = personnel.filter(p => p.project_id !== projectId)
+  setStorage(STORAGE_KEYS.PERSONNEL, filteredPersonnel)
+
+  return true
+}
+
+// ==================== 系统配置 ====================
+
+const DEFAULT_CONFIG: SystemConfig = {
+  auto_delete_days: 30,
+  robot_webhook: '',
+  remind_schedule: '周一 09:00',
+  push_targets: [],
+}
+
+export function getSystemConfig(): SystemConfig {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.CONFIG)
+    return data ? { ...DEFAULT_CONFIG, ...JSON.parse(data) } : DEFAULT_CONFIG
+  } catch {
+    return DEFAULT_CONFIG
+  }
+}
+
+export function saveSystemConfig(config: Partial<SystemConfig>): SystemConfig {
+  const current = getSystemConfig()
+  const updated = { ...current, ...config }
+  localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(updated))
+  return updated
+}
+
+// ==================== 初始化示例数据 ====================
+
+export function initMockData(): void {
+  const projects = getProjects()
+  if (projects.length > 0) return // 已有数据则跳过
+
+  const mockProjects: Project[] = [
+    {
+      project_id: 'demo1',
+      work_name: '杭州市临安区里畈水库加高扩容工程',
+      category: ProjectStatus.NEW,
+      work_requirement: '原总承包合同未包含水库清淤工作项目',
+      responsible_dept: '设计部',
+      responsible_person: '刘航',
+      responsible_leader: '王总',
+      plan_finish_date: '2026-04-30',
+      actual_finish_date: '',
+      risk_impact: '影响工程进度',
+      progress: '目前项建还在水利部，施工概算正常进行',
+      coordination_needs: '需与业主讨论合同条款',
+      suggestion: '建议项目部与施工单位沟通',
+      meeting_notes: '',
+      urgency_level: UrgencyLevel.URGENT_IMPORTANT,
+      is_pending_close: false,
+      remark: '',
+      created_by: 'user_liuhang',
+      created_week: '2026-W17',
+      updated_at: '2026-04-28T10:00:00Z',
+    },
+    {
+      project_id: 'demo2',
+      work_name: '浙东南水资源配置工程',
+      category: ProjectStatus.PROCESSING,
+      work_requirement: '4月底完成项建',
+      responsible_dept: '机电部',
+      responsible_person: '何伟',
+      responsible_leader: '李总',
+      plan_finish_date: '2026-04-30',
+      actual_finish_date: '',
+      risk_impact: '目前只提供了机电金结工程量',
+      progress: '项建报告编制中',
+      coordination_needs: '需要水文数据支持',
+      suggestion: '联系水文部门获取数据',
+      meeting_notes: '',
+      urgency_level: UrgencyLevel.IMPORTANT,
+      is_pending_close: false,
+      remark: '',
+      created_by: 'user_hewei',
+      created_week: '2026-W15',
+      updated_at: '2026-04-27T14:00:00Z',
+    },
+    {
+      project_id: 'demo3',
+      work_name: '淳安县秋口水库工程',
+      category: ProjectStatus.PROCESSING,
+      work_requirement: '根据评审会最新复审意见近期修改完成',
+      responsible_dept: '水工部',
+      responsible_person: '谢宇琦',
+      responsible_leader: '张总',
+      plan_finish_date: '2026-05-15',
+      actual_finish_date: '',
+      risk_impact: '',
+      progress: '正在修改可研报告',
+      coordination_needs: '',
+      suggestion: '',
+      meeting_notes: '',
+      urgency_level: UrgencyLevel.NORMAL,
+      is_pending_close: false,
+      remark: '',
+      created_by: 'user_xieyuqi',
+      created_week: '2026-W14',
+      updated_at: '2026-04-26T09:00:00Z',
+    },
+    {
+      project_id: 'demo4',
+      work_name: '开化县水库除险加固工程',
+      category: ProjectStatus.PENDING_CLOSE,
+      work_requirement: '完成初步设计审查',
+      responsible_dept: '设计部',
+      responsible_person: '胡蓉',
+      responsible_leader: '王总',
+      plan_finish_date: '2026-04-20',
+      actual_finish_date: '2026-04-18',
+      risk_impact: '',
+      progress: '初步设计已通过审查',
+      coordination_needs: '',
+      suggestion: '',
+      meeting_notes: '',
+      urgency_level: UrgencyLevel.URGENT,
+      is_pending_close: true,
+      remark: '',
+      created_by: 'user_hurong',
+      created_week: '2026-W12',
+      updated_at: '2026-04-25T16:00:00Z',
+    },
+  ]
+
+  setStorage(STORAGE_KEYS.PROJECTS, mockProjects)
+
+  // 初始化人员配置
+  const mockPersonnel: PersonnelConfig[] = [
+    { project_id: 'demo1', project_manager: 'user_liuhang', dept_head: 'user_zhangsan', leader: 'user_wangzong', safety_officer: 'user_zhaoliu' },
+    { project_id: 'demo2', project_manager: 'user_hewei', dept_head: 'user_lisi', leader: 'user_lizong', safety_officer: 'user_zhaoliu' },
+    { project_id: 'demo3', project_manager: 'user_xieyuqi', dept_head: 'user_wangwu', leader: 'user_zhangzong', safety_officer: 'user_zhaoliu' },
+    { project_id: 'demo4', project_manager: 'user_hurong', dept_head: 'user_zhangsan', leader: 'user_wangzong', safety_officer: 'user_zhaoliu' },
+  ]
+  setStorage(STORAGE_KEYS.PERSONNEL, mockPersonnel)
+}
+
+// 从在线表格同步数据（本地模式为空操作）
+export async function syncFromSheet(): Promise<void> {
+  // 本地模式不需要同步，sheet-api.ts 中有真实实现
+}
