@@ -13,6 +13,7 @@ interface TokenCache {
 
 interface DingTalkUser {
   userid: string
+  unionid?: string
   name: string
   avatar?: string
   mobile?: string
@@ -147,6 +148,7 @@ export async function getUserDetail(userid: string): Promise<DingTalkUser> {
 
   return {
     userid: data.result.userid,
+    unionid: data.result.unionid,
     name: data.result.name,
     avatar: data.result.avatar,
     mobile: data.result.mobile,
@@ -332,19 +334,22 @@ export async function getSpreadsheetSheets(spreadsheetId: string) {
 export async function getSpreadsheetRange(
   spreadsheetId: string,
   sheetId: string,
-  range: string
+  range: string,
+  operatorId?: string
 ) {
   const accessToken = await getAccessToken()
 
-  const response = await fetch(
-    `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets/${sheetId}/ranges/${range}?select=values`,
-    {
-      method: 'GET',
-      headers: {
-        'x-acs-dingtalk-access-token': accessToken,
-      },
-    }
-  )
+  let url = `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets/${sheetId}/ranges/${range}?select=values`
+  if (operatorId) {
+    url += `&operatorId=${encodeURIComponent(operatorId)}`
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'x-acs-dingtalk-access-token': accessToken,
+    },
+  })
 
   return response.json()
 }
@@ -357,21 +362,24 @@ export async function updateSpreadsheetRange(
   spreadsheetId: string,
   sheetId: string,
   range: string,
-  values: string[][]
+  values: string[][],
+  operatorId?: string
 ) {
   const accessToken = await getAccessToken()
 
-  const response = await fetch(
-    `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets/${sheetId}/ranges/${range}`,
-    {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-acs-dingtalk-access-token': accessToken,
-      },
-      body: JSON.stringify({ values }),
-    }
-  )
+  let url = `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets/${sheetId}/ranges/${range}`
+  if (operatorId) {
+    url += `?operatorId=${encodeURIComponent(operatorId)}`
+  }
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-acs-dingtalk-access-token': accessToken,
+    },
+    body: JSON.stringify({ values }),
+  })
 
   return response.json()
 }
@@ -383,21 +391,24 @@ export async function updateSpreadsheetRange(
 export async function appendSpreadsheetRows(
   spreadsheetId: string,
   sheetId: string,
-  values: string[][]
+  values: string[][],
+  operatorId?: string
 ) {
   const accessToken = await getAccessToken()
 
-  const response = await fetch(
-    `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets/${sheetId}/appendRows`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-acs-dingtalk-access-token': accessToken,
-      },
-      body: JSON.stringify({ values }),
-    }
-  )
+  let url = `https://api.dingtalk.com/v1.0/doc/workbooks/${spreadsheetId}/sheets/${sheetId}/appendRows`
+  if (operatorId) {
+    url += `?operatorId=${encodeURIComponent(operatorId)}`
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-acs-dingtalk-access-token': accessToken,
+    },
+    body: JSON.stringify({ values }),
+  })
 
   return response.json()
 }

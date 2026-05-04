@@ -5,6 +5,7 @@ import { isDingTalkEnv, performLogin } from '@/utils/dingtalk'
 
 export interface UserInfo {
   userid: string
+  unionid?: string
   name: string
   role: UserRole
   avatar?: string
@@ -66,6 +67,7 @@ export const useUserStore = defineStore('user', () => {
         if (dingUser) {
           userInfo.value = {
             userid: dingUser.userid,
+            unionid: dingUser.unionid,
             name: dingUser.name,
             role: mapRoleFromUser(dingUser),
             avatar: dingUser.avatar,

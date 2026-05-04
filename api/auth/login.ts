@@ -37,6 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       data: {
         userid: userDetail.userid,
+        unionid: userDetail.unionid,
         name: userDetail.name,
         avatar: userDetail.avatar,
         mobile: userDetail.mobile,

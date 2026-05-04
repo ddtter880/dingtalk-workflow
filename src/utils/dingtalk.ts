@@ -104,6 +104,7 @@ export async function getAuthCode(): Promise<string> {
 /** 通过服务端API完成OAuth登录 */
 export async function loginWithAuthCode(authCode: string): Promise<{
   userid: string
+  unionid?: string
   name: string
   avatar?: string
   mobile?: string
@@ -134,6 +135,7 @@ export async function loginWithAuthCode(authCode: string): Promise<{
 /** 完整的登录流程：获取authCode → 服务端换取用户信息 */
 export async function performLogin(): Promise<{
   userid: string
+  unionid?: string
   name: string
   avatar?: string
   mobile?: string
@@ -212,10 +214,27 @@ export async function sendRobotMessage(
 
 // ==================== 在线表格（通过服务端API） ====================
 
+/** 获取当前用户的 operatorId（即 unionId） */
+function getOperatorId(): string {
+  try {
+    const cached = sessionStorage.getItem('dt_user')
+    if (cached) {
+      const user = JSON.parse(cached)
+      return user?.unionid || ''
+    }
+  } catch { /* ignore */ }
+  return ''
+}
+
 /** 读取表格数据 */
 export async function fetchSheetData(sheetId: string, range: string): Promise<string[][] | null> {
   try {
-    const response = await fetch(`${API_BASE}/sheet?sheetId=${encodeURIComponent(sheetId)}&range=${encodeURIComponent(range)}`)
+    const operatorId = getOperatorId()
+    let url = `${API_BASE}/sheet?sheetId=${encodeURIComponent(sheetId)}&range=${encodeURIComponent(range)}`
+    if (operatorId) {
+      url += `&operatorId=${encodeURIComponent(operatorId)}`
+    }
+    const response = await fetch(url)
     const result = await response.json()
 
     if (result.success && result.data) {
@@ -231,10 +250,11 @@ export async function fetchSheetData(sheetId: string, range: string): Promise<st
 /** 追加行到表格 */
 export async function appendSheetData(sheetId: string, values: string[][]): Promise<boolean> {
   try {
+    const operatorId = getOperatorId()
     const response = await fetch(`${API_BASE}/sheet`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheetId, values }),
+      body: JSON.stringify({ sheetId, values, operatorId: operatorId || undefined }),
     })
 
     const result = await response.json()
@@ -252,10 +272,11 @@ export async function updateSheetData(
   values: string[][]
 ): Promise<boolean> {
   try {
+    const operatorId = getOperatorId()
     const response = await fetch(`${API_BASE}/sheet`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheetId, range, values }),
+      body: JSON.stringify({ sheetId, range, values, operatorId: operatorId || undefined }),
     })
 
     const result = await response.json()
