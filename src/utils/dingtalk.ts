@@ -47,13 +47,39 @@ export async function initDingTalk(): Promise<void> {
       return
     }
 
-    dd.config({
+    // 从服务端获取 JSAPI 鉴权签名
+    let configParams: any = {
       agentId: DINGTALK_AGENT_ID,
       corpId: DINGTALK_CORP_ID,
       timeStamp: '',
       nonceStr: '',
       signature: '',
       type: 0,
+    }
+
+    try {
+      const currentUrl = window.location.href.split('#')[0] // 去掉hash部分
+      const response = await fetch(`${API_BASE}/jsapi/signature?url=${encodeURIComponent(currentUrl)}`)
+      const result = await response.json()
+      if (result.success && result.data) {
+        configParams = {
+          agentId: result.data.agentId,
+          corpId: result.data.corpId,
+          timeStamp: result.data.timeStamp,
+          nonceStr: result.data.nonceStr,
+          signature: result.data.signature,
+          type: 0,
+        }
+        console.log('[DingTalk] JSAPI 签名获取成功')
+      } else {
+        console.warn('[DingTalk] JSAPI 签名获取失败，使用空签名:', result.error)
+      }
+    } catch (e) {
+      console.warn('[DingTalk] JSAPI 签名请求失败，使用空签名:', e)
+    }
+
+    dd.config({
+      ...configParams,
       jsApiList: [
         'runtime.permission.requestAuthCode',
         'biz.contact.complexPicker',

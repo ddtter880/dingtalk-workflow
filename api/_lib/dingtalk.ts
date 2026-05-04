@@ -460,3 +460,73 @@ export async function completeWorkRecord(recordId: string) {
 
   return response.json()
 }
+
+// ==================== JSAPI 签名 ====================
+
+import { createHash, randomUUID } from 'node:crypto'
+
+interface TicketCache {
+  ticket: string
+  expireAt: number
+}
+
+let jsapiTicketCache: TicketCache | null = null
+
+/**
+ * 获取 jsapi_ticket
+ * GET https://oapi.dingtalk.com/getticket?access_token=ACCESS_TOKEN&type=jsapi
+ */
+export async function getJsapiTicket(): Promise<string> {
+  // 检查缓存（ticket有效期7200秒，提前5分钟刷新）
+  if (jsapiTicketCache && jsapiTicketCache.expireAt > Date.now()) {
+    return jsapiTicketCache.ticket
+  }
+
+  const accessToken = await getAccessToken()
+
+  const response = await fetch(
+    `https://oapi.dingtalk.com/getticket?access_token=${accessToken}&type=jsapi`,
+    { method: 'GET' }
+  )
+
+  const data = await response.json() as { errcode: number; errmsg: string; ticket: string; expires_in: number }
+
+  if (data.errcode !== 0) {
+    throw new Error(`获取jsapi_ticket失败: ${data.errmsg}`)
+  }
+
+  jsapiTicketCache = {
+    ticket: data.ticket,
+    expireAt: Date.now() + (data.expires_in - 300) * 1000,
+  }
+
+  return data.ticket
+}
+
+/**
+ * 生成 JSAPI 鉴权签名
+ * 签名算法：SHA1(jsapi_ticket=TICKET&noncestr=NONCESTR&timestamp=TIMESTAMP&url=URL)
+ */
+export async function generateJsapiSignature(url: string): Promise<{
+  agentId: string
+  corpId: string
+  timeStamp: string
+  nonceStr: string
+  signature: string
+}> {
+  const ticket = await getJsapiTicket()
+  const nonceStr = randomUUID().replace(/-/g, '')
+  const timeStamp = Math.floor(Date.now() / 1000).toString()
+
+  // 按字典序拼接：jsapi_ticket, noncestr, timestamp, url（key全小写）
+  const signStr = `jsapi_ticket=${ticket}&noncestr=${nonceStr}&timestamp=${timeStamp}&url=${url}`
+  const signature = createHash('sha1').update(signStr).digest('hex')
+
+  return {
+    agentId: getAgentId(),
+    corpId: getCorpId(),
+    timeStamp,
+    nonceStr,
+    signature,
+  }
+}
